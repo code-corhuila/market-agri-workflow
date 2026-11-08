@@ -1,0 +1,27 @@
+# Deliberate migration runner of the workflow schema (ADR-013). PostgreSQL and workflow_app are
+# owned by infra; the workflow service itself is added here with its own branch.
+services:
+  workflow-db-migrate:
+    image: liquibase/liquibase:4.29
+    profiles: [tooling]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ../db:/workspace:ro
+    entrypoint:
+      - liquibase
+      - --search-path=/workspace
+      - --changelog-file=changelog/changelog-master.yaml
+      - --url=jdbc:postgresql://postgres:5432/${PG_DATABASE:?set PG_DATABASE}
+      - --username=${PG_ADMIN_USER:?set PG_ADMIN_USER}
+      - --password=${PG_ADMIN_PASSWORD:?set PG_ADMIN_PASSWORD}
+      - --database-changelog-table-name=databasechangelog_workflow
+      - --database-changelog-lock-table-name=databasechangeloglock_workflow
+    command: [update]
+    networks: [platform]
+
+networks:
+  platform:
+    name: platform-${ENV:?set ENV}
+    external: true
