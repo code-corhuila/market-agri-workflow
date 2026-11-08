@@ -22,10 +22,11 @@ connects as `workflow_app` and never migrates: `workflow-db-migrate` does it, fr
 
 | Rule | Where |
 |---|---|
-| `GET /health` → `200 {"status":"UP"}` (liveness, E-60) | `adapter/in/http/HealthController` |
+| `GET /health` → `200 {"status":"UP"}` without token (liveness, E-60) | `adapter/in/http/HealthController` |
 | `GET /health/ready` → `200`/`503` with `checks.database` (E-61; `broker` joins with the event consumer) | `adapter/in/http/HealthController`, `JdbcDatabaseCheck` |
 | One error body `{error, message, details, traceId}` from **one** handler (D-C21) | `adapter/in/http/ErrorHandler` |
 | `X-Correlation-Id` reused or generated, returned, as `traceId` and in every JSON log line (D-C28) | `adapter/in/http/CorrelationFilter` |
+| Token of auth validated locally with `JWT_PUBLIC_KEY` (RS256 only, `iss`, `exp` with 30 s of skew, role); `SERVICE` only on `/internal/**`, `@RequiredRole` per route (ADR-020, D-C27) | `adapter/in/http/AuthInterceptor`, `Rs256Verifier` |
 
 ## Run locally
 

@@ -28,6 +28,13 @@ server:
     connection-timeout: 5s              # reading the request headers
     keep-alive-timeout: 60s             # idle connection
 
+# Tokens of auth, validated locally (ADR-020, Anexo C 5.3.7): the issuer and the public key by
+# configuration. JWT_PUBLIC_KEY is the PEM on one line with literal \n; JWT_PUBLIC_KEY_FILE, a file.
+jwt:
+  issuer: ${JWT_ISSUER}
+  public-key: ${JWT_PUBLIC_KEY:}
+  public-key-file: ${JWT_PUBLIC_KEY_FILE:}
+
 # One JSON object per log line; the MDC (correlationId) goes into every line (Anexo C 5.3.9).
 logging:
   structured:
