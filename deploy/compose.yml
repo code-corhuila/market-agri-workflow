@@ -11,6 +11,8 @@ services:
       DATABASE_URL: jdbc:postgresql://postgres:5432/${PG_DATABASE:?set PG_DATABASE}
       DATABASE_USER: workflow_app
       DATABASE_PASSWORD: ${WORKFLOW_APP_PASSWORD:?set WORKFLOW_APP_PASSWORD}
+      JWT_ISSUER: ${JWT_ISSUER:?set JWT_ISSUER}
+      JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:?set JWT_PUBLIC_KEY}
     depends_on:                       # postgres lives in market-agri-infra; resolved when included
       postgres:
         condition: service_healthy
