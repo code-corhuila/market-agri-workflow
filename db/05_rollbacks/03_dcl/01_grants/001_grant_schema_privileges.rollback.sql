@@ -1,0 +1,4 @@
+ALTER DEFAULT PRIVILEGES IN SCHEMA workflow REVOKE SELECT, INSERT, UPDATE ON TABLES FROM workflow_writer;
+ALTER DEFAULT PRIVILEGES IN SCHEMA workflow REVOKE SELECT ON TABLES FROM workflow_reader;
+REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA workflow FROM workflow_writer, workflow_reader;
+REVOKE USAGE ON SCHEMA workflow FROM workflow_writer, workflow_reader;

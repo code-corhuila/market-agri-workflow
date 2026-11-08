@@ -1,0 +1,14 @@
+# Real secrets never enter the repository
+.env
+*.env
+!*.env.example
+*.pem
+
+# Liquibase and CI leftovers of db/
+liquibase-output.txt
+*.log
+second.txt
+privileges.txt
+
+# Build output
+target/
