@@ -1,0 +1,22 @@
+# Composition root: every limit of the service is declared here, with its value (Anexo C 5.3.10).
+spring:
+  application:
+    name: market-agri-workflow
+  lifecycle:
+    timeout-per-shutdown-phase: 20s     # graceful shutdown
+  web:
+    resources:
+      add-mappings: false               # an API serves no static files
+
+server:
+  port: ${PORT:8080}
+  shutdown: graceful                    # finish in-flight requests before stopping
+  tomcat:
+    connection-timeout: 5s              # reading the request headers
+    keep-alive-timeout: 60s             # idle connection
+
+# One JSON object per log line; the MDC (correlationId) goes into every line (Anexo C 5.3.9).
+logging:
+  structured:
+    format:
+      console: ecs
