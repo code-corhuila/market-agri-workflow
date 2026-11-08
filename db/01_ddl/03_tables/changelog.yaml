@@ -1,1 +1,52 @@
-databaseChangeLog: []
+databaseChangeLog:
+  - changeSet:
+      id: ddl-tables-001
+      author: contreras-elkin
+      labels: "HU-TXN-001,ddl,tables"
+      comment: "saga_instance - one checkout saga, its key, its transaction id and how it ended (ADR-015)."
+      changes:
+        - sqlFile:
+            path: 001_create_saga_instance.sql
+            relativeToChangelogFile: true
+            splitStatements: false
+            stripComments: false
+      rollback:
+        - sqlFile:
+            path: ../../05_rollbacks/01_ddl/03_tables/001_create_saga_instance.rollback.sql
+            relativeToChangelogFile: true
+            splitStatements: false
+            stripComments: false
+  - changeSet:
+      id: ddl-tables-002
+      author: contreras-elkin
+      labels: "HU-TXN-001,ddl,tables"
+      comment: "saga_step - each step with its status, attempts and the participant's answer (norm 5.8)."
+      changes:
+        - sqlFile:
+            path: 002_create_saga_step.sql
+            relativeToChangelogFile: true
+            splitStatements: false
+            stripComments: false
+      rollback:
+        - sqlFile:
+            path: ../../05_rollbacks/01_ddl/03_tables/002_create_saga_step.rollback.sql
+            relativeToChangelogFile: true
+            splitStatements: false
+            stripComments: false
+  - changeSet:
+      id: ddl-tables-003
+      author: contreras-elkin
+      labels: "HU-TXN-001,ddl,tables"
+      comment: "processed_event - events applied once, with the saga change (ADR-013)."
+      changes:
+        - sqlFile:
+            path: 003_create_processed_event.sql
+            relativeToChangelogFile: true
+            splitStatements: false
+            stripComments: false
+      rollback:
+        - sqlFile:
+            path: ../../05_rollbacks/01_ddl/03_tables/003_create_processed_event.rollback.sql
+            relativeToChangelogFile: true
+            splitStatements: false
+            stripComments: false
