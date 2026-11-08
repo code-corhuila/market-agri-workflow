@@ -1,5 +1,6 @@
 package co.edu.corhuila.marketagri.workflow.app;
 
+import co.edu.corhuila.marketagri.workflow.adapter.in.http.PublicEndpoint;
 import java.util.Map;
 import java.util.UUID;
 import jakarta.validation.Valid;
@@ -16,8 +17,10 @@ import org.springframework.web.bind.annotation.RestController;
  * Test-only routes for the cross-cutting HTTP adapter (error body, validation, correlation).
  * They are kept after the real endpoints exist (E-40, E-46): they test the handler and the filter on
  * their own, so a change in a business route never hides a regression of the contract body.
- * It lives in the test sources: it never reaches the jar.
+ * It lives in the test sources: it never reaches the jar. Anonymous, so the token never hides
+ * the check under test; the token checks use {@link SecuredProbeController}.
  */
+@PublicEndpoint
 @RestController
 public class ProbeController {
 
