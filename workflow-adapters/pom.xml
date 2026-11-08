@@ -12,7 +12,7 @@
     <artifactId>workflow-adapters</artifactId>
     <description>Inbound HTTP adapter and outbound adapters. They implement the ports of the core.</description>
 
-    <!-- JDBC arrives with the readiness of the database; the HTTP and broker clients, with their use cases. -->
+    <!-- The HTTP client of the saga steps and the broker client arrive with their use cases. -->
     <dependencies>
         <dependency>
             <groupId>co.edu.corhuila.marketagri</groupId>
@@ -22,6 +22,20 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+        <!-- Plain JDBC with the Hikari pool: no JPA, the schema lives in db/ and is migrated apart (ADR-013). -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-jdbc</artifactId>
+        </dependency>
+        <!-- Compile scope, as in the -api services: the adapters read violated constraints from PSQLException. -->
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
         </dependency>
 
         <dependency>
