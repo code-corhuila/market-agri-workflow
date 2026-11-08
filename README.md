@@ -9,7 +9,7 @@ state of each saga (E-46). Contract: `market-agri-docs/07-api/api-contract.md` �
 
 ```
 workflow-core/      domain/model, application/port/{in,out}, application/usecase — plain Java, no framework
-workflow-adapters/  adapter/in/http (and the outbound adapters, with their use cases)
+workflow-adapters/  adapter/in/http, adapter/out/persistence
 workflow-app/       composition root: entry point, wiring and every limit (application.yml)
 db/                 the workflow schema with Liquibase, as a -db repository (ADR-013): see db/README.md
 deploy/             Dockerfile and compose.yml (service and workflow-db-migrate), included by market-agri-infra
@@ -23,14 +23,32 @@ connects as `workflow_app` and never migrates: `workflow-db-migrate` does it, fr
 | Rule | Where |
 |---|---|
 | `GET /health` → `200 {"status":"UP"}` (liveness, E-60) | `adapter/in/http/HealthController` |
+| `GET /health/ready` → `200`/`503` with `checks.database` (E-61; `broker` joins with the event consumer) | `adapter/in/http/HealthController`, `JdbcDatabaseCheck` |
+| One error body `{error, message, details, traceId}` from **one** handler (D-C21) | `adapter/in/http/ErrorHandler` |
+| `X-Correlation-Id` reused or generated, returned, as `traceId` and in every JSON log line (D-C28) | `adapter/in/http/CorrelationFilter` |
 
 ## Run locally
 
 ```bash
 ./mvnw -B verify                      # build, unit and HTTP tests (Windows: mvnw.cmd)
-java -jar workflow-app/target/workflow-app-0.0.1-SNAPSHOT.jar
-curl -i http://localhost:8080/health
+cp .env.example .env                  # DATABASE_* of a database where db/ is migrated
+set -a && . ./.env && set +a && java -jar workflow-app/target/workflow-app-0.0.1-SNAPSHOT.jar
+curl -i http://localhost:8080/health/ready
 ```
+
+## Integration tests
+
+They run against a real PostgreSQL with the schema of `db/`, reached through `TEST_DATABASE_URL`
+(Anexo C), and are skipped when it is not set. With Docker:
+
+```bash
+export "$(bash scripts/test-database.sh)"   # throwaway container on 127.0.0.1:55435, migrated
+./mvnw -B verify -Pintegration              # unit, HTTP and *IT
+bash scripts/test-database.sh down
+```
+
+In CI, the `integration` job does the same on every pull request to `qa`; `db-ci.yml` rebuilds
+the schema on every pull request.
 
 ## Branching
 

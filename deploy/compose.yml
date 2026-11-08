@@ -8,10 +8,16 @@ services:
       dockerfile: deploy/Dockerfile
     environment:
       PORT: "8080"
+      DATABASE_URL: jdbc:postgresql://postgres:5432/${PG_DATABASE:?set PG_DATABASE}
+      DATABASE_USER: workflow_app
+      DATABASE_PASSWORD: ${WORKFLOW_APP_PASSWORD:?set WORKFLOW_APP_PASSWORD}
+    depends_on:                       # postgres lives in market-agri-infra; resolved when included
+      postgres:
+        condition: service_healthy
     expose:
       - "8080"
-    healthcheck:                      # liveness for now; readiness with the database joins later (D-C20)
-      test: ["CMD", "wget", "-qO-", "http://localhost:8080/health"]
+    healthcheck:                      # readiness: healthy only when the database answers (D-C20)
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/health/ready"]
       interval: 10s
       timeout: 3s
       retries: 5

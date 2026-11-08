@@ -7,6 +7,19 @@ spring:
   web:
     resources:
       add-mappings: false               # an API serves no static files
+  # PostgreSQL of market-agri-infra, always as workflow_app. Without these variables the service
+  # does not start. The schema comes from db/ through workflow-db-migrate: nothing here migrates (ADR-013).
+  datasource:
+    url: ${DATABASE_URL}
+    username: ${DATABASE_USER}
+    password: ${DATABASE_PASSWORD}
+    hikari:
+      maximum-pool-size: 10                         # connections
+      connection-timeout: 5000                      # ms waiting for a free connection
+      connection-init-sql: SET statement_timeout = '5s'   # per statement, on every connection
+  sql:
+    init:
+      mode: never                       # no schema.sql or data.sql, ever (norm 5.2.1)
 
 server:
   port: ${PORT:8080}
