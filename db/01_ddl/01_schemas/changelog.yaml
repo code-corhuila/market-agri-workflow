@@ -1,0 +1,18 @@
+databaseChangeLog:
+  - changeSet:
+      id: ddl-schemas-001
+      author: contreras-elkin
+      labels: "HU-TXN-001,ddl,schemas"
+      comment: "Schema of the workflow state (ADR-013). Nothing of it lives in public (Anexo A, rule 9)."
+      changes:
+        - sqlFile:
+            path: 001_create_schema_workflow.sql
+            relativeToChangelogFile: true
+            splitStatements: false
+            stripComments: false
+      rollback:
+        - sqlFile:
+            path: ../../05_rollbacks/01_ddl/01_schemas/001_create_schema_workflow.rollback.sql
+            relativeToChangelogFile: true
+            splitStatements: false
+            stripComments: false
