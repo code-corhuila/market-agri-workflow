@@ -3,6 +3,7 @@
 *.env
 !*.env.example
 *.pem
+keys/
 
 # Liquibase and CI leftovers of db/
 liquibase-output.txt
@@ -10,5 +11,14 @@ liquibase-output.txt
 second.txt
 privileges.txt
 
-# Build output
+# Maven
 target/
+.mvn/wrapper/maven-wrapper.jar
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.settings/
+.project
+.classpath
