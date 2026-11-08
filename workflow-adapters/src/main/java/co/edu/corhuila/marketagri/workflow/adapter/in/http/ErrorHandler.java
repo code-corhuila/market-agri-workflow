@@ -50,6 +50,22 @@ public class ErrorHandler extends ResponseEntityExceptionHandler {
         return body(code, detailsOf(exception, code), headers, request);
     }
 
+    /** No token or an invalid one (authentication.md §3): why, only in the log. */
+    @ExceptionHandler(UnauthorizedException.class)
+    public ResponseEntity<Object> handleUnauthorized(UnauthorizedException exception, WebRequest request) {
+        LOG.warn("Rejected credential: {}", exception.getMessage());
+        HttpHeaders headers = new HttpHeaders();
+        headers.set(HttpHeaders.WWW_AUTHENTICATE, "Bearer");
+        return body(ErrorCode.UNAUTHORIZED, List.of(), headers, request);
+    }
+
+    /** A valid token that may not use the route (D-C27, the roles of the card). */
+    @ExceptionHandler(ForbiddenException.class)
+    public ResponseEntity<Object> handleForbidden(ForbiddenException exception, WebRequest request) {
+        LOG.warn("Denied: {}", exception.getMessage());
+        return body(ErrorCode.FORBIDDEN, List.of(), HttpHeaders.EMPTY, request);
+    }
+
     /** Last resort: neutral message to the client, full detail only in the log (NFR-039). */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Object> handleUnexpected(Exception exception, WebRequest request) {
