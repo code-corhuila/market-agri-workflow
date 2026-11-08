@@ -1,1 +1,18 @@
-databaseChangeLog: []
+databaseChangeLog:
+  - changeSet:
+      id: ddl-alter-001
+      author: contreras-elkin
+      labels: "HU-TXN-001,ddl,alter"
+      comment: "Foreign keys inside the workflow schema, ON DELETE RESTRICT."
+      changes:
+        - sqlFile:
+            path: 001_add_foreign_keys.sql
+            relativeToChangelogFile: true
+            splitStatements: false
+            stripComments: false
+      rollback:
+        - sqlFile:
+            path: ../../05_rollbacks/01_ddl/04_alter/001_add_foreign_keys.rollback.sql
+            relativeToChangelogFile: true
+            splitStatements: false
+            stripComments: false
