@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
  * {@code 503} otherwise, with the same body. Only {@code database} for now: {@code broker}
  * joins with the event consumer of the saga. Both are anonymous.
  */
+@PublicEndpoint
 @RestController
 public class HealthController {
 
