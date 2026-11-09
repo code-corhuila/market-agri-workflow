@@ -35,6 +35,18 @@ jwt:
   public-key: ${JWT_PUBLIC_KEY:}
   public-key-file: ${JWT_PUBLIC_KEY_FILE:}
 
+# The participants of the checkout saga, by their service name in the platform network (Anexo D),
+# and the workflow's SERVICE_TOKEN (ADR-020): without them the service does not start.
+participants:
+  chat-api-url: ${CHAT_API_URL}
+  catalog-api-url: ${CATALOG_API_URL}
+  transactions-api-url: ${TRANSACTIONS_API_URL}
+  service-token: ${SERVICE_TOKEN}
+  http:
+    timeout: ${HTTP_TIMEOUT:3s}          # per attempt (ADR-015 §4)
+    attempts: ${HTTP_ATTEMPTS:3}         # tries, only on network errors, 429 and 5xx
+    backoff-base: 200ms                  # full jitter: up to 400 ms, then up to 800 ms (Anexo D)
+
 # One JSON object per log line; the MDC (correlationId) goes into every line (Anexo C 5.3.9).
 logging:
   structured:
