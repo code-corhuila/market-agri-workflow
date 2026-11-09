@@ -42,6 +42,28 @@ public final class CheckoutSaga {
         return new CheckoutSaga(UUID.randomUUID(), UUID.randomUUID(), request, now);
     }
 
+    /**
+     * A saga as it was stored ({@code saga_instance} and its {@code saga_step} rows), for the
+     * repository only: every rule applies again from the next transition on.
+     */
+    public static CheckoutSaga restore(UUID id, UUID transactionId, CheckoutRequest request, SagaStatus status,
+                                       SagaStep currentStep, SagaStep failedStep, CheckoutFailure failure,
+                                       Map<SagaStep, StepRecord> steps, Conversation conversation,
+                                       Reservation reservation, PaymentCheckout payment, Instant createdAt,
+                                       Instant updatedAt) {
+        CheckoutSaga saga = new CheckoutSaga(id, transactionId, request, createdAt);
+        saga.status = status;
+        saga.currentStep = currentStep;
+        saga.failedStep = failedStep;
+        saga.failure = failure;
+        saga.steps.putAll(steps);
+        saga.conversation = conversation;
+        saga.reservation = reservation;
+        saga.payment = payment;
+        saga.updatedAt = updatedAt;
+        return saga;
+    }
+
     /** {@code <sagaId>:<step>}: the key a participant receives for this step (norm §5.8). */
     public String idempotencyKeyFor(SagaStep step) {
         return id + ":" + step.wireName();

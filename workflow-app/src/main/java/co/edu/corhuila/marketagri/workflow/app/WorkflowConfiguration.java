@@ -2,8 +2,10 @@ package co.edu.corhuila.marketagri.workflow.app;
 
 import co.edu.corhuila.marketagri.workflow.adapter.in.http.PublicKeys;
 import co.edu.corhuila.marketagri.workflow.adapter.in.http.Rs256Verifier;
+import co.edu.corhuila.marketagri.workflow.adapter.out.persistence.JdbcCheckoutSagas;
 import co.edu.corhuila.marketagri.workflow.adapter.out.persistence.JdbcDatabaseCheck;
 import co.edu.corhuila.marketagri.workflow.application.port.out.ReadinessCheck;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.nio.file.Path;
 import java.security.interfaces.RSAPublicKey;
 import java.time.Clock;
@@ -11,6 +13,8 @@ import javax.sql.DataSource;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * The only place that knows the concrete types: use cases of the core are wired to the
@@ -42,5 +46,11 @@ public class WorkflowConfiguration {
     @Bean
     ReadinessCheck databaseCheck(DataSource dataSource) {
         return new JdbcDatabaseCheck(dataSource);
+    }
+
+    /** The saga store (ADR-013): {@code saga_instance} and {@code saga_step}, as workflow_app. */
+    @Bean
+    JdbcCheckoutSagas checkoutSagas(JdbcClient jdbc, TransactionTemplate transaction, ObjectMapper json) {
+        return new JdbcCheckoutSagas(jdbc, transaction, json);
     }
 }
