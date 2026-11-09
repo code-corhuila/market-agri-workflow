@@ -13,6 +13,10 @@ services:
       DATABASE_PASSWORD: ${WORKFLOW_APP_PASSWORD:?set WORKFLOW_APP_PASSWORD}
       JWT_ISSUER: ${JWT_ISSUER:?set JWT_ISSUER}
       JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:?set JWT_PUBLIC_KEY}
+      CHAT_API_URL: http://chat-api:8080           # the WireMock stub of chat until phase 6 (same name)
+      CATALOG_API_URL: http://catalog-api:8080
+      TRANSACTIONS_API_URL: http://transactions-api:8080
+      SERVICE_TOKEN: ${SERVICE_TOKEN:?set SERVICE_TOKEN}
     depends_on:                       # postgres lives in market-agri-infra; resolved when included
       postgres:
         condition: service_healthy
