@@ -9,6 +9,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import co.edu.corhuila.marketagri.workflow.adapter.correlation.Correlation;
 import org.slf4j.MDC;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
@@ -28,7 +29,7 @@ public class CorrelationFilter extends OncePerRequestFilter {
     private static final Logger LOG = LoggerFactory.getLogger(CorrelationFilter.class);
 
     public static final String HEADER = "X-Correlation-Id";
-    public static final String MDC_KEY = "correlationId";
+    public static final String MDC_KEY = Correlation.MDC_KEY;
     private static final Pattern SAFE_ID = Pattern.compile("[A-Za-z0-9._-]{1,128}");
 
     @Override
