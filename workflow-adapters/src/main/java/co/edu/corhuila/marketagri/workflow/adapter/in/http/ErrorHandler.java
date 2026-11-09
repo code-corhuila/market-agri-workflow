@@ -1,6 +1,9 @@
 package co.edu.corhuila.marketagri.workflow.adapter.in.http;
 
+import co.edu.corhuila.marketagri.workflow.domain.model.CheckoutRejectedException;
+import co.edu.corhuila.marketagri.workflow.domain.model.DomainException;
 import java.util.List;
+import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -22,7 +25,7 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
  * The single place where an exception becomes an HTTP response (Anexo C, api-contract §2).
  * Spring's own exceptions (404 route, 405, malformed JSON, type mismatch, missing header…)
  * arrive through {@link #handleExceptionInternal}; anything else, through
- * {@link #handleUnexpected}. Domain errors will be mapped here too, never in a controller.
+ * {@link #handleUnexpected}. Domain errors are mapped here too ({@link DomainError}), never in a controller.
  */
 @RestControllerAdvice
 public class ErrorHandler extends ResponseEntityExceptionHandler {
@@ -64,6 +67,32 @@ public class ErrorHandler extends ResponseEntityExceptionHandler {
     public ResponseEntity<Object> handleForbidden(ForbiddenException exception, WebRequest request) {
         LOG.warn("Denied: {}", exception.getMessage());
         return body(ErrorCode.FORBIDDEN, List.of(), HttpHeaders.EMPTY, request);
+    }
+
+    /** A header out of range ({@code Idempotency-Key}), named in {@code details}. */
+    @ExceptionHandler(InvalidParameterException.class)
+    public ResponseEntity<Object> handleInvalidParameter(InvalidParameterException exception, WebRequest request) {
+        List<ApiError.FieldDetail> details = List.of(new ApiError.FieldDetail(exception.field(), exception.getMessage()));
+        return body(ErrorCode.VALIDATION_ERROR, details, HttpHeaders.EMPTY, request);
+    }
+
+    /**
+     * A row of E-40 ({@link DomainError}); the message is the saga's when it carries values
+     * ({@code INSUFFICIENT_STOCK}). The participant and its answer go only to the log (norm §5.8.3).
+     * A code without a row is a bug: 500, logged.
+     */
+    @ExceptionHandler(DomainException.class)
+    public ResponseEntity<Object> handleDomain(DomainException exception, WebRequest request) {
+        Optional<DomainError> known = DomainError.of(exception.code());
+        if (known.isEmpty()) {
+            return handleUnexpected(exception, request);
+        }
+        String message = exception instanceof CheckoutRejectedException rejected
+                && rejected.failure().message() != null && !rejected.failure().message().isBlank()
+                ? rejected.failure().message() : known.get().message();
+        LOG.warn("Checkout refused with {}: {}", exception.code(), exception.getMessage());
+        ApiError error = new ApiError(exception.code(), message, List.of(), traceId(request));
+        return ResponseEntity.status(known.get().status()).body(error);
     }
 
     /** Last resort: neutral message to the client, full detail only in the log (NFR-039). */
