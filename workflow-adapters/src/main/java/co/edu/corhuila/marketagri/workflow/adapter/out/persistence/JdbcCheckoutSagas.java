@@ -24,10 +24,13 @@ import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.EnumMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Consumer;
 import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
@@ -41,31 +44,58 @@ public class JdbcCheckoutSagas implements CheckoutSagas {
     private final JdbcClient jdbc;
     private final TransactionTemplate transaction;
     private final ObjectMapper json;
+    private final TransactionTemplate snapshot;
 
     public JdbcCheckoutSagas(JdbcClient jdbc, TransactionTemplate transaction, ObjectMapper json) {
         this.jdbc = jdbc;
         this.transaction = transaction;
         this.json = json;
+        this.snapshot = new TransactionTemplate(transaction.getTransactionManager());
+        snapshot.setReadOnly(true);
+        snapshot.setIsolationLevel(TransactionDefinition.ISOLATION_REPEATABLE_READ);
     }
 
-    /** Two reads, steps first, so no query runs while another one's rows are open. */
     @Override
     public Optional<CheckoutSaga> findByKey(UUID buyerId, String idempotencyKey) {
+        return snapshot.execute(tx -> jdbc.sql("""
+                        SELECT id FROM saga_instance WHERE buyer_id = :buyer AND idempotency_key = :key""")
+                .param("buyer", buyerId).param("key", idempotencyKey).query(UUID.class).optional().flatMap(this::load));
+    }
+
+    @Override
+    public Optional<CheckoutSaga> findById(UUID id) {
+        return snapshot.execute(tx -> load(id));
+    }
+
+    @Override
+    public CheckoutSaga runLocked(UUID id, Consumer<CheckoutSaga> action) {
+        return transaction.execute(tx -> {
+            jdbc.sql("SELECT id FROM saga_instance WHERE id = :id FOR UPDATE").param("id", id).query(UUID.class).single();
+            CheckoutSaga saga = load(id).orElseThrow();
+            action.accept(saga);
+            return saga;
+        });
+    }
+
+    public List<UUID> recoverable(Instant cutoff) {
+        return jdbc.sql("""
+                        SELECT id FROM saga_instance WHERE status = 'RUNNING' AND updated_at < :cutoff
+                          AND (current_step <> 'await-payment' OR failed_step IS NOT NULL)
+                        ORDER BY updated_at, id""")
+                .param("cutoff", Timestamp.from(cutoff)).query(UUID.class).list();
+    }
+
+    private Optional<CheckoutSaga> load(UUID id) {
         Map<SagaStep, StepRecord> steps = new EnumMap<>(SagaStep.class);
         Map<SagaStep, String> results = new EnumMap<>(SagaStep.class);
-        jdbc.sql("""
-                        SELECT s.* FROM saga_step s JOIN saga_instance i ON i.id = s.saga_instance_id
-                         WHERE i.buyer_id = :buyer AND i.idempotency_key = :key""")
-                .param("buyer", buyerId).param("key", idempotencyKey).query((step, n) -> {
-                    SagaStep name = step(step.getString("step"));
-                    steps.put(name, new StepRecord(StepStatus.valueOf(step.getString("status")),
-                            step.getInt("attempts"), step.getInt("compensation_attempts"),
-                            instant(step, "started_at"), instant(step, "updated_at")));
-                    results.put(name, step.getString("result"));
-                    return name;
-                }).list();
-        return jdbc.sql("SELECT * FROM saga_instance WHERE buyer_id = :buyer AND idempotency_key = :key")
-                .param("buyer", buyerId).param("key", idempotencyKey)
+        jdbc.sql("SELECT * FROM saga_step WHERE saga_instance_id = :id").param("id", id).query((row, n) -> {
+            SagaStep name = step(row.getString("step"));
+            steps.put(name, new StepRecord(StepStatus.valueOf(row.getString("status")), row.getInt("attempts"),
+                    row.getInt("compensation_attempts"), instant(row, "started_at"), instant(row, "updated_at")));
+            results.put(name, row.getString("result"));
+            return name;
+        }).list();
+        return jdbc.sql("SELECT * FROM saga_instance WHERE id = :id").param("id", id)
                 .query((row, n) -> restore(row, steps, results)).optional();
     }
 

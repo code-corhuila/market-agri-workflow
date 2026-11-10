@@ -57,6 +57,18 @@ final class InMemorySaga implements ConversationReader, StockReservations, Payme
     }
 
     @Override
+    public Optional<CheckoutSaga> findById(UUID id) {
+        return stored.values().stream().filter(saga -> saga.id().equals(id)).findFirst();
+    }
+
+    @Override
+    public CheckoutSaga runLocked(UUID id, java.util.function.Consumer<CheckoutSaga> action) {
+        CheckoutSaga saga = findById(id).orElseThrow();
+        action.accept(saga);
+        return saga;
+    }
+
+    @Override
     public Optional<CheckoutSaga> findByKey(UUID buyerId, String idempotencyKey) {
         return Optional.ofNullable(stored.get(buyerId + "/" + idempotencyKey));
     }
