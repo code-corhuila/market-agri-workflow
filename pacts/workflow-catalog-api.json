@@ -1,0 +1,110 @@
+{
+  "consumer": {
+    "name": "workflow"
+  },
+  "interactions": [
+    {
+      "description": "I-04 release the checkout reservation",
+      "key": "4a3675a5",
+      "pending": false,
+      "providerStates": [
+        {
+          "name": "a reservation may exist or may already be released"
+        }
+      ],
+      "request": {
+        "headers": {
+          "Authorization": [
+            "Bearer workflow-service-token"
+          ],
+          "X-Correlation-Id": [
+            "e6-workflow-contract"
+          ]
+        },
+        "method": "DELETE",
+        "path": "/internal/v1/catalog/reservations/22222222-2222-2222-2222-222222222222"
+      },
+      "response": {
+        "status": 204
+      },
+      "transport": "http",
+      "type": "Synchronous/HTTP"
+    },
+    {
+      "description": "I-03 reserve stock for the checkout",
+      "key": "3e39fcdd",
+      "pending": false,
+      "providerStates": [
+        {
+          "name": "an active product has enough stock"
+        }
+      ],
+      "request": {
+        "body": {
+          "content": {
+            "quantity": 2.50,
+            "transactionId": "22222222-2222-2222-2222-222222222222"
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Authorization": [
+            "Bearer workflow-service-token"
+          ],
+          "Content-Type": [
+            "application/json"
+          ],
+          "Idempotency-Key": [
+            "saga:reserve-stock"
+          ],
+          "X-Correlation-Id": [
+            "e6-workflow-contract"
+          ]
+        },
+        "method": "POST",
+        "path": "/internal/v1/catalog/products/11111111-1111-1111-1111-111111111111/reservations"
+      },
+      "response": {
+        "body": {
+          "content": {
+            "createdAt": "2026-11-10T00:00:00Z",
+            "currency": "COP",
+            "producerId": "55555555-5555-5555-5555-555555555555",
+            "productId": "11111111-1111-1111-1111-111111111111",
+            "productName": "Caf\u00E9",
+            "quantity": 2.50,
+            "remainingQuantity": 7.50,
+            "transactionId": "22222222-2222-2222-2222-222222222222",
+            "unit": "KILOGRAMO",
+            "unitPriceCents": 8500000
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "status": 201
+      },
+      "transport": "http",
+      "type": "Synchronous/HTTP"
+    }
+  ],
+  "metadata": {
+    "pact-jvm": {
+      "version": "4.7.5"
+    },
+    "pactSpecification": {
+      "version": "4.0"
+    },
+    "plugins": [
+
+    ]
+  },
+  "provider": {
+    "name": "catalog-api"
+  }
+}
