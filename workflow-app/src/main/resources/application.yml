@@ -52,3 +52,7 @@ logging:
   structured:
     format:
       console: ecs
+
+workflow:
+  recovery:
+    enabled: ${WORKFLOW_RECOVERY_ENABLED:true}

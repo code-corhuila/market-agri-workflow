@@ -1,8 +1,9 @@
 package co.edu.corhuila.marketagri.workflow.app;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.hamcrest.Matchers.not;
+import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -217,7 +218,7 @@ class CheckoutHttpTest extends WorkflowSpringTest {
                     .andExpect(jsonPath("$.transactionId").value(onlySaga().transactionId().toString()))
                     .andExpect(jsonPath("$.status").value("RUNNING"))
                     .andExpect(jsonPath("$.completedSteps").value(
-                            java.util.List.of("read-conversation", "reserve-stock", "create-payment")))
+                            contains("read-conversation", "reserve-stock", "create-payment")))
                     .andExpect(jsonPath("$.failedStep").isEmpty())
                     .andExpect(jsonPath("$.createdAt").isString())
                     .andExpect(jsonPath("$.updatedAt").isString())
