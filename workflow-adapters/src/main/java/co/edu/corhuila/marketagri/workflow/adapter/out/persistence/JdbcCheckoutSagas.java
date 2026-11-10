@@ -29,6 +29,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Consumer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -40,6 +42,8 @@ import org.springframework.transaction.support.TransactionTemplate;
  * checkout with the {@code TransactionView} as transactions wrote it.
  */
 public class JdbcCheckoutSagas implements CheckoutSagas {
+
+    private static final Logger LOG = LoggerFactory.getLogger(JdbcCheckoutSagas.class);
 
     private final JdbcClient jdbc;
     private final TransactionTemplate transaction;
@@ -83,6 +87,21 @@ public class JdbcCheckoutSagas implements CheckoutSagas {
                           AND (current_step <> 'await-payment' OR failed_step IS NOT NULL)
                         ORDER BY updated_at, id""")
                 .param("cutoff", Timestamp.from(cutoff)).query(UUID.class).list();
+    }
+
+    public void applyPaymentEvent(UUID event, String type, UUID transactionId, Consumer<CheckoutSaga> action) {
+        transaction.executeWithoutResult(tx -> {
+            Optional<UUID> id = jdbc.sql("SELECT id FROM saga_instance WHERE transaction_id = :id FOR UPDATE")
+                    .param("id", transactionId).query(UUID.class).optional();
+            int inserted = jdbc.sql("""
+                            INSERT INTO processed_event (event_id, event_type, saga_instance_id)
+                            VALUES (:event, :type, :saga) ON CONFLICT (event_id) DO NOTHING""")
+                    .param("event", event).param("type", type).param("saga", id.orElse(null)).update();
+            if (inserted == 1) {
+                id.flatMap(this::load).ifPresentOrElse(action,
+                        () -> LOG.warn("Payment event {} has no saga for transaction {}", event, transactionId));
+            }
+        });
     }
 
     private Optional<CheckoutSaga> load(UUID id) {

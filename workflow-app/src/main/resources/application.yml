@@ -54,5 +54,11 @@ logging:
       console: ecs
 
 workflow:
+  broker:
+    enabled: ${WORKFLOW_BROKER_ENABLED:false}
+    host: ${BROKER_HOST:rabbitmq}
+    port: ${BROKER_PORT:5672}
+    username: ${BROKER_USERNAME:workflow_app}
+    password: ${BROKER_PASSWORD:}
   recovery:
     enabled: ${WORKFLOW_RECOVERY_ENABLED:true}

@@ -17,12 +17,14 @@ services:
       CATALOG_API_URL: http://catalog-api:8080
       TRANSACTIONS_API_URL: http://transactions-api:8080
       SERVICE_TOKEN: ${SERVICE_TOKEN:?set SERVICE_TOKEN}
+      WORKFLOW_BROKER_ENABLED: ${WORKFLOW_BROKER_ENABLED:-false}
+      BROKER_PASSWORD: ${WORKFLOW_BROKER_PASSWORD:-}
     depends_on:                       # postgres lives in market-agri-infra; resolved when included
       postgres:
         condition: service_healthy
     expose:
       - "8080"
-    healthcheck:                      # readiness: healthy only when the database answers (D-C20)
+    healthcheck:                      # readiness: database and broker (when enabled) (D-C20)
       test: ["CMD", "wget", "-qO-", "http://localhost:8080/health/ready"]
       interval: 10s
       timeout: 3s

@@ -12,8 +12,12 @@
     <artifactId>workflow-adapters</artifactId>
     <description>Inbound HTTP adapter and outbound adapters. They implement the ports of the core.</description>
 
-    <!-- The HTTP client of the saga steps and the broker client arrive with their use cases. -->
     <dependencies>
+        <dependency>
+            <groupId>com.rabbitmq</groupId>
+            <artifactId>amqp-client</artifactId>
+            <version>5.25.0</version>
+        </dependency>
         <dependency>
             <groupId>co.edu.corhuila.marketagri</groupId>
             <artifactId>workflow-core</artifactId>
