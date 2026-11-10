@@ -198,6 +198,56 @@ class CheckoutSagasIT extends WorkflowIntegrationTest {
         assertThat(sagas.recoverable(T2.plusSeconds(60))).doesNotContain(saga.id());
     }
 
+    @Test
+    void paymentEventsDeduplicateByEventId() {
+        CheckoutSaga saga = CheckoutSaga.start(request, T0);
+        sagas.create(saga);
+        saga.beginStep(SagaStep.READ_CONVERSATION, T1);
+        saga.conversationRead(conversation(), T1);
+        saga.beginStep(SagaStep.RESERVE_STOCK, T1);
+        saga.stockReserved(reservation(saga), T1);
+        saga.beginStep(SagaStep.CREATE_PAYMENT, T2);
+        saga.paymentCreated(new PaymentCheckout(VIEW, URI.create("https://checkout.wompi.co/p/")), T2);
+        sagas.save(saga);
+
+        UUID event = UUID.randomUUID();
+        java.util.function.Consumer<CheckoutSaga> confirm = current -> {
+            current.paymentFinished(true, T2);
+            sagas.save(current);
+        };
+        sagas.applyPaymentEvent(event, "TransactionConfirmed", saga.transactionId(), confirm);
+        sagas.applyPaymentEvent(event, "TransactionConfirmed", saga.transactionId(), ignored -> {
+            throw new AssertionError("Redelivery applied a second time");
+        });
+        assertThat(sagas.findById(saga.id()).orElseThrow().status()).isEqualTo(SagaStatus.COMPLETED);
+    }
+
+    @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    void anUncommittedEventCanBeRetriedAndAnUnknownTransactionIsAcknowledged() {
+        CheckoutSaga saga = CheckoutSaga.start(request, T0);
+        sagas.create(saga);
+        UUID event = UUID.randomUUID();
+        assertThatThrownBy(() -> sagas.applyPaymentEvent(event, "TransactionFailed", saga.transactionId(), current -> {
+            current.beginStep(SagaStep.READ_CONVERSATION, T1);
+            sagas.save(current);
+            throw new IllegalStateException("abort");
+        })).hasMessage("abort");
+        assertThat(sagas.findById(saga.id()).orElseThrow().step(SagaStep.READ_CONVERSATION)).isEmpty();
+        sagas.applyPaymentEvent(event, "TransactionFailed", saga.transactionId(), current -> {
+            current.beginStep(SagaStep.READ_CONVERSATION, T2);
+            sagas.save(current);
+        });
+        assertThat(sagas.findById(saga.id()).orElseThrow().updatedAt()).isEqualTo(T2);
+
+        UUID unknown = UUID.randomUUID();
+        sagas.applyPaymentEvent(unknown, "TransactionConfirmed", UUID.randomUUID(), ignored -> {
+            throw new AssertionError("Unknown transaction was applied");
+        });
+        assertThat(jdbc.sql("SELECT event_id FROM processed_event WHERE event_id = :id AND saga_instance_id IS NULL")
+                .param("id", unknown).query(UUID.class).optional()).contains(unknown);
+    }
+
     private Conversation conversation() {
         return new Conversation(request.conversationId(), UUID.fromString("00000000-0000-4000-8000-000000000001"),
                 "Café", buyer, "Ana", UUID.fromString("00000000-0000-4000-8000-000000000002"), "Luis",

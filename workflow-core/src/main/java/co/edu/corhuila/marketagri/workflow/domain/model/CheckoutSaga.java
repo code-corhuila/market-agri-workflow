@@ -116,6 +116,24 @@ public final class CheckoutSaga {
         updatedAt = now;
     }
 
+    /** The broker can deliver an event before I-06's result is stored. */
+    public boolean paymentFinished(boolean confirmed, Instant now) {
+        if (status != SagaStatus.RUNNING || failure != null || reservation == null
+                || confirmed && currentStep != SagaStep.AWAIT_PAYMENT) {
+            return false;
+        }
+        currentStep = SagaStep.AWAIT_PAYMENT;
+        steps.put(currentStep, StepRecord.started(now).with(confirmed ? StepStatus.DONE : StepStatus.REFUSED, now));
+        if (confirmed) {
+            status = SagaStatus.COMPLETED;
+        } else {
+            failedStep = currentStep;
+            failure = new CheckoutFailure(CheckoutError.PAYMENT_GATEWAY_ERROR, null, "TransactionFailed event");
+        }
+        updatedAt = now;
+        return true;
+    }
+
     /** True while the reservation may be held after a failure: I-04 must be called. */
     public boolean mustReleaseStock() {
         return status == SagaStatus.RUNNING && failure != null;

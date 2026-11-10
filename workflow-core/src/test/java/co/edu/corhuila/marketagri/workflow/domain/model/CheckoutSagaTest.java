@@ -61,6 +61,29 @@ class CheckoutSagaTest {
     }
 
     @Test
+    void confirmationCompletesTheSagaAndARepeatedResultDoesNothing() {
+        openCheckout();
+
+        assertThat(saga.paymentFinished(true, T1)).isTrue();
+        assertThat(saga.paymentFinished(false, T1)).isFalse();
+        assertThat(saga.status()).isEqualTo(SagaStatus.COMPLETED);
+        assertThat(saga.step(AWAIT_PAYMENT)).get().extracting(StepRecord::status).isEqualTo(StepStatus.DONE);
+        assertThat(saga.mustReleaseStock()).isFalse();
+    }
+
+    @Test
+    void failedPaymentLeavesTheCheckoutVisibleAndReleasesStockThroughCompensation() {
+        openCheckout();
+
+        assertThat(saga.paymentFinished(false, T1)).isTrue();
+        assertThat(saga.failedStep()).contains(AWAIT_PAYMENT);
+        assertThat(saga.payment()).isPresent();
+        assertThat(saga.mustReleaseStock()).isTrue();
+        saga.stockReleased(T1);
+        assertThat(saga.status()).isEqualTo(SagaStatus.COMPENSATED);
+    }
+
+    @Test
     void aStepCannotRunOutOfOrderNorTwiceNorFinishWithoutStarting() {
         assertThatThrownBy(() -> saga.beginStep(RESERVE_STOCK, T1)).isInstanceOf(IllegalStateException.class);
         assertThatThrownBy(() -> saga.conversationRead(conversation(), T1)).isInstanceOf(IllegalStateException.class);
