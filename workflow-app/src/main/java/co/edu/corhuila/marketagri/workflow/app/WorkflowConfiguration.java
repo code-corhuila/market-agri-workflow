@@ -23,7 +23,7 @@ import java.nio.file.Path;
 import java.security.interfaces.RSAPublicKey;
 import java.time.Clock;
 import java.time.Duration;
-import java.util.random.RandomGenerator;
+import java.util.concurrent.ThreadLocalRandom;
 import javax.sql.DataSource;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -78,7 +78,9 @@ public class WorkflowConfiguration {
                                 @Value("${participants.http.timeout}") Duration timeout,
                                 @Value("${participants.http.attempts}") int attempts,
                                 @Value("${participants.http.backoff-base}") Duration backoffBase) {
-        return new ServiceCaller(serviceToken, timeout, attempts, backoffBase, RandomGenerator.getDefault(),
+        // The Alpine JRE does not ship the L32X64MixRandom provider selected by getDefault().
+        // ThreadLocalRandom implements RandomGenerator and is available in every supported JRE.
+        return new ServiceCaller(serviceToken, timeout, attempts, backoffBase, ThreadLocalRandom.current(),
                 Thread::sleep);
     }
 
