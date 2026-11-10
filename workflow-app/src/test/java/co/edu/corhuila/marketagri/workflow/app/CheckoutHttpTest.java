@@ -3,12 +3,14 @@ package co.edu.corhuila.marketagri.workflow.app;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.containsString;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import co.edu.corhuila.marketagri.workflow.adapter.out.http.ServiceCaller;
 import co.edu.corhuila.marketagri.workflow.application.port.out.StepCall;
 import co.edu.corhuila.marketagri.workflow.domain.model.CheckoutSaga;
 import co.edu.corhuila.marketagri.workflow.domain.model.Conversation;
@@ -29,6 +31,7 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
@@ -50,6 +53,9 @@ class CheckoutHttpTest extends WorkflowSpringTest {
             return new InMemorySaga();
         }
     }
+
+    @MockitoBean
+    private ServiceCaller unusedHttpClient;
 
     @Autowired
     private MockMvc http;
@@ -199,6 +205,31 @@ class CheckoutHttpTest extends WorkflowSpringTest {
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.error").value("CHECKOUT_IN_PROGRESS"))
                 .andExpect(jsonPath("$.message").value("La compra se está procesando. Intente de nuevo en unos segundos."));
+    }
+
+    @Test
+    void e46ShowsOnlyPublicProgressToTheBuyerAndAdmin() throws Exception {
+        String location = start("key-00000001", "1").andReturn().getResponse().getHeader("Location");
+        for (String token : new String[] {buyerToken(), TestTokens.user("ADMIN").signed()}) {
+            http.perform(get(location).header("Authorization", "Bearer " + token))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.id").value(onlySaga().id().toString()))
+                    .andExpect(jsonPath("$.transactionId").value(onlySaga().transactionId().toString()))
+                    .andExpect(jsonPath("$.status").value("RUNNING"))
+                    .andExpect(jsonPath("$.completedSteps").value(
+                            java.util.List.of("read-conversation", "reserve-stock", "create-payment")))
+                    .andExpect(jsonPath("$.failedStep").isEmpty())
+                    .andExpect(jsonPath("$.createdAt").isString())
+                    .andExpect(jsonPath("$.updatedAt").isString())
+                    .andExpect(jsonPath("$.errorDetail").doesNotHaveJsonPath());
+        }
+        for (String route : new String[] {location, ROUTE + "/" + UUID.randomUUID()}) {
+            http.perform(get(route).header("Authorization", "Bearer " + TestTokens.user("BUYER").signed()))
+                    .andExpect(status().isNotFound())
+                    .andExpect(jsonPath("$.error").value("CHECKOUT_NOT_FOUND"));
+        }
+        http.perform(get(ROUTE + "/not-a-uuid").header("Authorization", "Bearer " + buyerToken()))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.error").value("VALIDATION_ERROR"));
     }
 
     private ResultActions start(String key, String quantity) throws Exception {
