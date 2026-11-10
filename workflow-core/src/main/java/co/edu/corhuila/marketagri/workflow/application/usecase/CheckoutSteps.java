@@ -71,6 +71,32 @@ public final class CheckoutSteps {
         }
     }
 
+    /** A confirmed payment can predate the commit of I-06 after a crash. Replay only that call. */
+    public void finishPayment(CheckoutSaga saga, boolean confirmed) {
+        if (confirmed && saga.hasStepToRun() && saga.currentStep() == SagaStep.CREATE_PAYMENT) {
+            var result = payments.create(saga.idempotencyKeyFor(SagaStep.CREATE_PAYMENT), saga.transactionId(),
+                    saga.conversation(), saga.reservation());
+            if (!(result instanceof StepCall.Done<PaymentCheckout>(PaymentCheckout checkout))) {
+                throw new PaymentNotRecovered(saga.transactionId());
+            }
+            saga.beginStep(SagaStep.CREATE_PAYMENT, clock.instant());
+            saga.paymentCreated(checkout, clock.instant());
+        }
+        if (saga.paymentFinished(confirmed, clock.instant())) {
+            if (saga.mustReleaseStock()) {
+                releaseStock(saga);
+            } else {
+                sagas.save(saga);
+            }
+        }
+    }
+
+    public static final class PaymentNotRecovered extends RuntimeException {
+        private PaymentNotRecovered(UUID transactionId) {
+            super("Could not recover checkout for " + transactionId);
+        }
+    }
+
     private void readConversation(CheckoutSaga saga) {
         SagaStep step = begin(saga, SagaStep.READ_CONVERSATION);
         switch (conversations.read(saga.request().conversationId())) {

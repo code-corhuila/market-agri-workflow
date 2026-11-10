@@ -13,8 +13,8 @@ import org.springframework.web.bind.annotation.RestController;
  * Health (D-C20). Liveness, {@code GET /health} (E-60), checks nothing but the process, so a
  * database outage never makes the platform restart a healthy container. Readiness,
  * {@code GET /health/ready} (E-61), reports each dependency: {@code 200} when all are up,
- * {@code 503} otherwise, with the same body. Only {@code database} for now: {@code broker}
- * joins with the event consumer of the saga. Both are anonymous.
+ * {@code 503} otherwise, with the same body. The broker is checked when consumption is enabled.
+ * Both endpoints are anonymous.
  */
 @PublicEndpoint
 @RestController
