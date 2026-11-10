@@ -12,5 +12,6 @@ abstract class WorkflowSpringTest {
     @DynamicPropertySource
     static void tokenKey(DynamicPropertyRegistry registry) {
         registry.add("jwt.public-key", TestTokens::publicKeyOnOneLine);
+        registry.add("workflow.recovery.enabled", () -> false);
     }
 }
