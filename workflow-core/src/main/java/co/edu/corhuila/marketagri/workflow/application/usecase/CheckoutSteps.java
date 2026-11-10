@@ -13,6 +13,7 @@ import co.edu.corhuila.marketagri.workflow.domain.model.PaymentCheckout;
 import co.edu.corhuila.marketagri.workflow.domain.model.Reservation;
 import co.edu.corhuila.marketagri.workflow.domain.model.SagaStep;
 import java.time.Clock;
+import java.util.UUID;
 
 /**
  * Orchestrator of steps 1–3 (ADR-015, E-40): calls each participant, stores the answer before the
@@ -44,17 +45,29 @@ public final class CheckoutSteps {
     }
 
     /** Runs until the checkout is open or a step fails; then releases the stock if it may be held. */
-    public void runFrom(CheckoutSaga saga) {
-        while (saga.hasStepToRun()) {
+    public CheckoutSaga runFrom(CheckoutSaga saga) {
+        UUID id = saga.id();
+        do {
+            saga = sagas.runLocked(id, this::runNext);
+        } while (saga.hasStepToRun());
+        if (saga.mustReleaseStock()) {
+            return sagas.runLocked(id, current -> {
+                if (current.mustReleaseStock()) {
+                    releaseStock(current);
+                }
+            });
+        }
+        return saga;
+    }
+
+    private void runNext(CheckoutSaga saga) {
+        if (saga.hasStepToRun()) {
             switch (saga.currentStep()) {
                 case READ_CONVERSATION -> readConversation(saga);
                 case RESERVE_STOCK -> reserveStock(saga);
                 case CREATE_PAYMENT -> createPayment(saga);
                 case AWAIT_PAYMENT -> throw new IllegalStateException("await-payment is not a call");
             }
-        }
-        if (saga.mustReleaseStock()) {
-            releaseStock(saga);
         }
     }
 

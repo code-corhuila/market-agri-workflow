@@ -15,6 +15,7 @@ import co.edu.corhuila.marketagri.workflow.application.port.out.PaymentCreator;
 import co.edu.corhuila.marketagri.workflow.application.port.out.ReadinessCheck;
 import co.edu.corhuila.marketagri.workflow.application.port.out.StockReservations;
 import co.edu.corhuila.marketagri.workflow.application.usecase.CheckoutSteps;
+import co.edu.corhuila.marketagri.workflow.application.usecase.ReadCheckout;
 import co.edu.corhuila.marketagri.workflow.application.usecase.StartCheckoutService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.net.URI;
@@ -56,7 +57,7 @@ public class WorkflowConfiguration {
         return new Rs256Verifier(key, issuer, Clock.systemUTC());
     }
 
-    /** E-61: workflow answers only with its database up ({@code broker} joins with the event consumer). */
+    /** E-61 database check. */
     @Bean
     ReadinessCheck databaseCheck(DataSource dataSource) {
         return new JdbcDatabaseCheck(dataSource);
@@ -101,10 +102,18 @@ public class WorkflowConfiguration {
 
     /** E-40: the saga of ADR-015 over the ports; the tests replace any of them with a {@code @Primary} one. */
     @Bean
-    StartCheckout startCheckout(ConversationReader conversations, StockReservations reservations,
+    StartCheckout startCheckout(CheckoutSagas sagas, CheckoutSteps steps) {
+        return new StartCheckoutService(sagas, steps, Clock.systemUTC());
+    }
+
+    @Bean
+    CheckoutSteps checkoutSteps(ConversationReader conversations, StockReservations reservations,
                                 PaymentCreator payments, CheckoutSagas sagas) {
-        Clock clock = Clock.systemUTC();
-        return new StartCheckoutService(sagas, new CheckoutSteps(conversations, reservations, payments, sagas, clock),
-                clock);
+        return new CheckoutSteps(conversations, reservations, payments, sagas, Clock.systemUTC());
+    }
+
+    @Bean
+    ReadCheckout readCheckout(CheckoutSagas sagas) {
+        return new ReadCheckout(sagas);
     }
 }

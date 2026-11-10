@@ -181,6 +181,23 @@ class CheckoutSagasIT extends WorkflowIntegrationTest {
         assertThat(stored.updatedAt()).isEqualTo(T0);
     }
 
+    @Test
+    void recoverySelectsStaleWorkAndSkipsSagasAwaitingPayment() {
+        CheckoutSaga saga = CheckoutSaga.start(request, T0);
+        sagas.create(saga);
+        assertThat(sagas.recoverable(T1)).contains(saga.id());
+        assertThat(sagas.recoverable(T0)).doesNotContain(saga.id());
+
+        saga.beginStep(SagaStep.READ_CONVERSATION, T1);
+        saga.conversationRead(conversation(), T1);
+        saga.beginStep(SagaStep.RESERVE_STOCK, T1);
+        saga.stockReserved(reservation(saga), T1);
+        saga.beginStep(SagaStep.CREATE_PAYMENT, T2);
+        saga.paymentCreated(new PaymentCheckout(VIEW, URI.create("https://checkout.wompi.co/p/")), T2);
+        sagas.save(saga);
+        assertThat(sagas.recoverable(T2.plusSeconds(60))).doesNotContain(saga.id());
+    }
+
     private Conversation conversation() {
         return new Conversation(request.conversationId(), UUID.fromString("00000000-0000-4000-8000-000000000001"),
                 "Café", buyer, "Ana", UUID.fromString("00000000-0000-4000-8000-000000000002"), "Luis",

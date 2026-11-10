@@ -8,6 +8,7 @@ import org.springframework.http.HttpStatus;
 enum DomainError {
     VALIDATION_ERROR(HttpStatus.BAD_REQUEST, ErrorCode.VALIDATION_ERROR.message()),
     QUANTITY_NOT_POSITIVE(HttpStatus.UNPROCESSABLE_ENTITY, "La cantidad debe ser mayor que cero."),
+    CHECKOUT_NOT_FOUND(HttpStatus.NOT_FOUND, "La compra no existe."),
     CHECKOUT_IN_PROGRESS(HttpStatus.CONFLICT, "La compra se está procesando. Intente de nuevo en unos segundos."),
     CHAT_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "El chat no está disponible. Intente de nuevo."),
     CONVERSATION_NOT_FOUND(HttpStatus.NOT_FOUND, "La conversación no existe."),

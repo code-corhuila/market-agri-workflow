@@ -38,8 +38,7 @@ public final class StartCheckoutService implements StartCheckout {
         if (!sagas.create(saga)) {
             return answer(sagas.findByKey(command.buyerId(), command.idempotencyKey()).orElseThrow(), false);
         }
-        steps.runFrom(saga);
-        return answer(saga, true);
+        return answer(steps.runFrom(saga), true);
     }
 
     /** An open checkout wins over a later failure of its payment: the body is the original one. */
