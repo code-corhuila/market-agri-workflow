@@ -1,0 +1,4 @@
+DROP INDEX workflow.idx_processed_event_saga_instance_id;
+DROP INDEX workflow.idx_saga_instance_running;
+DROP INDEX workflow.uq_saga_instance_transaction_id;
+DROP INDEX workflow.uq_saga_instance_buyer_key;

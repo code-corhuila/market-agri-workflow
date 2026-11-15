@@ -1,0 +1,104 @@
+name: Database rebuild
+
+# The workflow keeps its state in its own schema, migrated from db/ (ADR-013): the same checks as
+# a -db repository, run from that folder.
+
+on:
+  pull_request:
+    branches: [develop, qa, main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PG_DATABASE: market_agri
+  PG_ADMIN_USER: market_admin
+  PG_ADMIN_PASSWORD: ci-only
+
+jobs:
+  rebuild:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: db
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: market_agri
+          POSTGRES_USER: market_admin
+          POSTGRES_PASSWORD: ci-only
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U market_admin -d market_agri"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Prepare the instance as market-agri-infra would
+        run: |
+          psql() {
+            docker run --rm -i --network host -v "$PWD:/workspace:ro" -w /workspace -e PGPASSWORD="$PG_ADMIN_PASSWORD" postgres:16-alpine \
+              psql -v ON_ERROR_STOP=1 -h localhost -U "$PG_ADMIN_USER" -d "$PG_DATABASE" "$@"
+          }
+          psql -c "CREATE EXTENSION IF NOT EXISTS pgcrypto;"
+          psql -c "CREATE ROLE workflow_app LOGIN PASSWORD 'ci-only';"
+          psql -c "ALTER ROLE workflow_app SET search_path = workflow;"
+
+      - name: Apply, verify isolation, roll back, and rebuild
+        run: |
+          lb() {
+            docker run --rm --network host -v "$PWD:/workspace:ro" liquibase/liquibase:4.29 \
+              --search-path=/workspace \
+              --changelog-file=changelog/changelog-master.yaml \
+              --url="jdbc:postgresql://localhost:5432/$PG_DATABASE" \
+              --username="$PG_ADMIN_USER" --password="$PG_ADMIN_PASSWORD" \
+              --database-changelog-table-name=databasechangelog_workflow \
+              --database-changelog-lock-table-name=databasechangeloglock_workflow "$@"
+          }
+          psql() {
+            docker run --rm -i --network host -v "$PWD:/workspace:ro" -w /workspace -e PGPASSWORD="$PG_ADMIN_PASSWORD" postgres:16-alpine \
+              psql -v ON_ERROR_STOP=1 -h localhost -U "$PG_ADMIN_USER" -d "$PG_DATABASE" "$@"
+          }
+
+          echo "::group::1. update from empty"
+          lb update
+          echo "::endgroup::"
+
+          echo "::group::2. second update must apply nothing"
+          lb update | tee second.txt
+          grep -q "Run:  *0" second.txt || { echo "second update applied changes: not incremental"; exit 1; }
+          echo "::endgroup::"
+
+          echo "::group::3. J.10: workflow_app writes only in workflow"
+          psql -c "CREATE TABLE workflow.__ci_privilege_probe (id integer);" \
+               -c "CREATE TABLE public.__ci_privilege_probe (id integer);"
+          own_schema=$(psql -At -c "SELECT has_table_privilege('workflow_app', 'workflow.__ci_privilege_probe', 'INSERT');")
+          other_schema=$(psql -At -c "SELECT has_table_privilege('workflow_app', 'public.__ci_privilege_probe', 'INSERT');")
+          [ "$own_schema" = "t" ] || { echo "workflow_app cannot write in its own schema"; exit 1; }
+          [ "$other_schema" = "f" ] || { echo "workflow_app can write outside its own schema"; exit 1; }
+          psql -At -F '|' < ../.github/workflows/j10-privileges.sql | tee privileges.txt
+          awk -F'|' '$1 == "workflow_app" && $2 != "workflow" && $4 == "t" {bad=1} END {exit bad}' privileges.txt \
+            || { echo "workflow_app can write outside the workflow schema"; exit 1; }
+          psql -c "DROP TABLE public.__ci_privilege_probe;" -c "DROP TABLE workflow.__ci_privilege_probe;"
+          echo "::endgroup::"
+
+          echo "::group::3b. table rules (tests/*.sql), on the built schema"
+          for t in tests/*.sql; do echo "-- $t"; psql < "$t"; done
+          echo "::endgroup::"
+
+          echo "::group::4. full rollback removes the workflow schema and roles"
+          lb rollback-count 999
+          left=$(psql -At -c "SELECT (SELECT count(*) FROM pg_namespace WHERE nspname = 'workflow')
+                                   + (SELECT count(*) FROM pg_roles WHERE rolname IN ('workflow_reader','workflow_writer'));")
+          [ "$left" = "0" ] || { echo "rollback left the workflow schema or roles behind"; exit 1; }
+          echo "::endgroup::"
+
+          echo "::group::5. update again after rollback"
+          lb update
+          echo "::endgroup::"

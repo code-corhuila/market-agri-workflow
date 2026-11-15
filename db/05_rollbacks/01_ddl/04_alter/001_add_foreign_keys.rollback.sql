@@ -1,0 +1,2 @@
+ALTER TABLE workflow.processed_event DROP CONSTRAINT fk_processed_event_saga_instance;
+ALTER TABLE workflow.saga_step DROP CONSTRAINT fk_saga_step_saga_instance;
