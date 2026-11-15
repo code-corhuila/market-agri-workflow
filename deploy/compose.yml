@@ -1,0 +1,61 @@
+# Included by market-agri-infra (Anexo G). No `ports`: only the API Gateway publishes one.
+# PostgreSQL and workflow_app are owned by infra; workflow-db-migrate is the deliberate migration
+# runner of the workflow schema (ADR-013) and the service never migrates.
+services:
+  workflow:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    environment:
+      PORT: "8080"
+      DATABASE_URL: jdbc:postgresql://postgres:5432/${PG_DATABASE:?set PG_DATABASE}
+      DATABASE_USER: workflow_app
+      DATABASE_PASSWORD: ${WORKFLOW_APP_PASSWORD:?set WORKFLOW_APP_PASSWORD}
+      JWT_ISSUER: ${JWT_ISSUER:?set JWT_ISSUER}
+      JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:?set JWT_PUBLIC_KEY}
+      CHAT_API_URL: http://chat-api:8080           # the WireMock stub of chat until phase 6 (same name)
+      CATALOG_API_URL: http://catalog-api:8080
+      TRANSACTIONS_API_URL: http://transactions-api:8080
+      SERVICE_TOKEN: ${SERVICE_TOKEN:?set SERVICE_TOKEN}
+      WORKFLOW_BROKER_ENABLED: ${WORKFLOW_BROKER_ENABLED:-false}
+      BROKER_PASSWORD: ${WORKFLOW_BROKER_PASSWORD:-}
+    depends_on:                       # postgres lives in market-agri-infra; resolved when included
+      postgres:
+        condition: service_healthy
+    expose:
+      - "8080"
+    healthcheck:                      # readiness: database and broker (when enabled) (D-C20)
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/health/ready"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 30s
+    # Longer than the 20 s graceful shutdown declared in application.yml.
+    stop_grace_period: 25s
+    restart: unless-stopped
+    networks: [platform]
+
+  workflow-db-migrate:
+    image: liquibase/liquibase:4.29
+    profiles: [tooling]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ../db:/workspace:ro
+    entrypoint:
+      - liquibase
+      - --search-path=/workspace
+      - --changelog-file=changelog/changelog-master.yaml
+      - --url=jdbc:postgresql://postgres:5432/${PG_DATABASE:?set PG_DATABASE}
+      - --username=${PG_ADMIN_USER:?set PG_ADMIN_USER}
+      - --password=${PG_ADMIN_PASSWORD:?set PG_ADMIN_PASSWORD}
+      - --database-changelog-table-name=databasechangelog_workflow
+      - --database-changelog-lock-table-name=databasechangeloglock_workflow
+    command: [update]
+    networks: [platform]
+
+networks:
+  platform:
+    name: platform-${ENV:?set ENV}
+    external: true

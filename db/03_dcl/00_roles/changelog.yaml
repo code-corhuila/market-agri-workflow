@@ -1,0 +1,18 @@
+databaseChangeLog:
+  - changeSet:
+      id: dcl-roles-001
+      author: contreras-elkin
+      labels: "HU-TXN-001,dcl,roles"
+      comment: "workflow_reader and workflow_writer (NOLOGIN). They carry permissions only on the workflow schema."
+      changes:
+        - sqlFile:
+            path: 001_create_roles.sql
+            relativeToChangelogFile: true
+            splitStatements: false
+            stripComments: false
+      rollback:
+        - sqlFile:
+            path: ../../05_rollbacks/03_dcl/00_roles/001_create_roles.rollback.sql
+            relativeToChangelogFile: true
+            splitStatements: false
+            stripComments: false
